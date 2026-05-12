@@ -1,5 +1,4 @@
 yfinance
 pandas
-https://github.com/twopirllc/pandas-ta/archive/refs/heads/master.zip
 requests
 flask
