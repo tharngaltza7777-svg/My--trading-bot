@@ -1,57 +1,66 @@
-import subprocess
-import sys
-def install(package):
-subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-try:
-import pandas_ta
-except ImportError:
-install('pandas-ta')
-import os
+import yfinance as yf
 import requests
 import time
-import yfinance as yf
-import pandas_ta as ta
+import os
+from flask import Flask
+from threading import Thread
 
-# --- Configuration ---
-TOKEN = "8140108107:AAH1AEOF1pZzYRNkDDm1v4ylvBHC-IcQlhM"
-CHAT_ID = "8344079627"
+# Web Server for Render
+app = Flask('')
+@app.route('/')
+def home(): return "Bot is Running!"
 
-def send_signal(msg):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"}
+def run_web():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# RSI တွက်ချက်ရန် Function (Library မလိုဘဲ ကိုယ်တိုင်တွက်နည်း)
+def calculate_rsi(data, window=14):
+    delta = data['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+# Signal စစ်ဆေးပြီး Telegram သို့ ပို့ရန် Function
+def check_signals():
+    symbol = "XAUUSD=X" # Gold (ရွှေစျေး)
     try:
-        requests.post(url, data=payload)
-    except:
-        pass
-
-def monitor_market():
-    # ရွှေ၊ ငွေ နဲ့ Bitcoin ကို စောင့်ကြည့်မယ်
-    assets = {"GOLD 🟡": "GC=F", "SILVER ⚪": "SI=F", "BITCOIN 🧡": "BTC-USD"}
-    
-    for name, ticker in assets.items():
-        try:
-            df = yf.download(ticker, period="2d", interval="5m", progress=False)
+        df = yf.download(symbol, interval="5m", period="1d", progress=False)
+        
+        if len(df) < 20: return
+        
+        # RSI နဲ့ EMA (20) ကို တွက်ချက်ခြင်း
+        df['RSI'] = calculate_rsi(df)
+        df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
+        
+        last_price = df['Close'].iloc[-1]
+        last_rsi = df['RSI'].iloc[-1]
+        last_ema = df['EMA_20'].iloc[-1]
+        
+        msg = ""
+        # Buy Signal: RSI 30 အောက်ရောက်ပြီး စျေးနှုန်းက EMA 20 အပေါ်မှာရှိရင်
+        if last_rsi < 30 and last_price > last_ema:
+            msg = f"🚀 BUY SIGNAL: Gold at {last_price:.2f} (RSI: {last_rsi:.2f})"
+        # Sell Signal: RSI 70 အထက်ရောက်ပြီး စျေးနှုန်းက EMA 20 အောက်မှာရှိရင်
+        elif last_rsi > 70 and last_price < last_ema:
+            msg = f"📉 SELL SIGNAL: Gold at {last_price:.2f} (RSI: {last_rsi:.2f})"
+        
+        if msg:
+            # သင်ပေးထားတဲ့ Token နဲ့ Chat ID အသုံးပြုထားပါတယ်
+            token = "8140108107:AAH1AEOF1pZzYRNkDDm1v4ylvBHC-IcQIhM"
+            chat_id = "8344079627"
+            url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}"
+            requests.get(url)
+            print(f"Signal Sent: {msg}")
             
-            # Institutional Logic (EMA 200 & RSI)
-            df['EMA_200'] = ta.ema(df['Close'], length=200)
-            df['RSI'] = ta.rsi(df['Close'], length=14)
-            
-            price = df['Close'].iloc[-1]
-            ema_200 = df['EMA_200'].iloc[-1]
-            rsi = df['RSI'].iloc[-1]
-
-            # Signal Logic
-            if price > ema_200 and 45 < rsi < 65:
-                msg = f"🏆 *GLOBAL PRO BUY: {name}*\n🎯 Price: `${price:.2f}`\n📈 Trend: Strong Bullish"
-                send_signal(msg)
-            elif price < ema_200 and 35 < rsi < 55:
-                msg = f"🏆 *GLOBAL PRO SELL: {name}*\n🎯 Price: `${price:.2f}`\n📉 Trend: Strong Bearish"
-                send_signal(msg)
-        except:
-            continue
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 AI Agent is starting on Cloud...")
+    # Web server ကို background မှာ run ထားပါမယ်
+    Thread(target=run_web).start()
+    print("🚀 Bot is starting and checking for signals...")
     while True:
-        monitor_market()
-        time.sleep(300) # ၅ မိနစ်တစ်ခါ စစ်ဆေးမယ်
+        check_signals()
+        time.sleep(300) # ၅ မိနစ်တစ်ခါ စစ်ဆေးပါမယ်
