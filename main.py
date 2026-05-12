@@ -59,5 +59,6 @@ if __name__ == "__main__":
     print("🚀 Bot is starting...")
     while True:
         check_signals()
-        time.sleep(300)
+        time.sleep(900)
+            
         
