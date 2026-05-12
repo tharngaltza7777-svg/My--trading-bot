@@ -1,5 +1,4 @@
 yfinance
-pandas-ta
+pandas_ta
 requests
 flask
-
