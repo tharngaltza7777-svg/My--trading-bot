@@ -1,3 +1,11 @@
+import subprocess
+import sys
+def install(package):
+subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+try:
+import pandas_ta
+except ImportError:
+install('pandas-ta')
 import os
 import requests
 import time
