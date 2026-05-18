@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 import requests
 import pandas as pd
-import ta
+import ta  # အဆင့်မြှင့်တင်ထားသော ta library ကို သုံးထားသည်
 
 # --- [ ဆက်တင်များ အားလုံး ဖြည့်စွက်ပြီးသားဖြစ်သည် ] ---
 TELEGRAM_BOT_TOKEN = "8951243669:AAEJSVGQo3AMWvIorVYUvAIzoBDdFW-z07M"
@@ -13,6 +13,7 @@ INTERVAL = "5m"                                 # ၅ မိနစ် Timeframe
 RSI_PERIOD = 14                                 # RSI Standard Period
 # --------------------------------------------------
 
+# Render စနစ်မှ ရှာဖွေနိုင်ရန် အမည်ကို 'app' ဟု အမှန်ပြင်ဆင်ထားပါသည်
 app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 
@@ -34,8 +35,8 @@ async def check_rsi_and_alert():
             ])
             df['Close'] = df['Close'].astype(float)
             
-            # ၃။ pandas_ta သုံးပြီး RSI ကို တွက်ချက်ခြင်း
-            df['RSI'] = ta.rsi(df['Close'], length=RSI_PERIOD)
+            # ၃။ ta library သစ်ကိုသုံး၍ RSI ကို စနစ်တကျ တွက်ချက်ခြင်း
+            df['RSI'] = ta.momentum.rsi(df['Close'], window=RSI_PERIOD)
             
             current_rsi = float(df['RSI'].iloc[-1])
             current_price = float(df['Close'].iloc[-1])
