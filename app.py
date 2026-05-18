@@ -6,11 +6,11 @@ import pandas as pd
 import ta
 import yfinance as yf
 
-# --- [ Telegram Configurations ] ---
+# --- [ Telegram Configurations - Token အသစ် ကွက်တိပြင်ဆင်ပြီး ] ---
 TELEGRAM_BOT_TOKEN = "8951243669:AAEJSVGQo3AMWvIorVYUvAIzoBDdFW-z07M"
 TELEGRAM_CHAT_ID = "8344079627"
 
-# စောင့်ကြည့်မည့် Asset များနှင့် ၎င်းတို့၏ Yahoo Finance သင်္ကေတများ
+# စောင့်ကြည့်မည့် Asset များ
 ASSETS = {
     "GOLD (ရွှေ)": "GC=F",
     "CRUDE OIL (ရေနံ)": "CL=F",
@@ -19,13 +19,12 @@ ASSETS = {
     "ETH/USD": "ETH-USD"
 }
 
-INTERVAL = "5m"       # ၅ မိနစ် Timeframe
-RSI_PERIOD = 14       # RSI Period
+INTERVAL = "5m"       
+RSI_PERIOD = 14       
 
 app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 
-# Asset တစ်ခုချင်းစီအတွက် ပြီးခဲ့သော Signal အခြေအနေကို မှတ်ထားရန်
 last_signals = {asset: None for asset in ASSETS.keys()}
 
 async def check_markets_and_alert():
@@ -33,24 +32,20 @@ async def check_markets_and_alert():
     while True:
         for asset_name, ticker in ASSETS.items():
             try:
-                # ၁။ Yahoo Finance မှ Real-time ဒေတာ ဆွဲယူခြင်း
+                # Yahoo Finance မှ ဒေတာဆွဲယူခြင်း
                 data = yf.download(tickers=ticker, period="1d", interval=INTERVAL, progress=False)
                 
                 if data.empty or len(data) < (RSI_PERIOD + 2):
-                    logging.info(f"[{asset_name}] စျေးကွက်ပိတ်ထားခြင်း (သို့) ဒေတာမလုံလောက်ပါ။ Skipping...")
+                    logging.info(f"[{asset_name}] Data not ready or Market closed.")
                     continue
                 
-                # Multi-index DataFrame Column ပြဿနာကို ဖြေရှင်းခြင်း
                 df = pd.DataFrame(data)
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = [col[0] for col in df.columns]
                 
                 df['Close'] = df['Close'].astype(float)
-                
-                # ၂။ RSI တွက်ချက်ခြင်း
                 df['RSI'] = ta.momentum.rsi(df['Close'], window=RSI_PERIOD)
                 
-                # ဒေတာ သန့်စင်ခြင်း
                 df_clean = df.dropna(subset=['RSI', 'Close'])
                 if df_clean.empty:
                     continue
@@ -58,30 +53,28 @@ async def check_markets_and_alert():
                 current_rsi = float(df_clean['RSI'].iloc[-1])
                 current_price = float(df_clean['Close'].iloc[-1])
                 
+                # Render Log ပေါ်တွင် ဒေတာ အလုပ်လုပ်ပုံကို စောင့်ကြည့်ရန် ပြသခိုင်းခြင်း
                 logging.info(f"[{asset_name}] RSI: {current_rsi:.2f} | Price: {current_price:.4f}")
                 
-                # ၃။ Trading Signal Logic (RSI < 42 Buy | RSI > 58 Sell)
+                # Signal Logic (RSI < 42 BUY | RSI > 58 SELL)
                 if current_rsi < 42 and last_signals[asset_name] != "BUY":
-                    message = f"🚀 **REAL-TIME TRADING ALERT**\n\n📊 Asset: **{asset_name}**\n🟢 Action: **BUY**\n💰 Price: {current_price:.4f}\n📉 RSI (14): {current_rsi:.2f}\n\n🔒 Status: Multi-Asset Engine Active"
+                    message = f"🚀 **REAL-TIME TRADING ALERT**\n\n📊 Asset: **{asset_name}**\n🟢 Action: **BUY**\n💰 Price: {current_price:.4f}\n📉 RSI (14): {current_rsi:.2f}\n\n🔒 Status: Engine Live"
                     send_telegram_message(message)
                     last_signals[asset_name] = "BUY"
                     
                 elif current_rsi > 58 and last_signals[asset_name] != "SELL":
-                    message = f"🚀 **REAL-TIME TRADING ALERT**\n\n📊 Asset: **{asset_name}**\n🔴 Action: **SELL**\n💰 Price: {current_price:.4f}\n📈 RSI (14): {current_rsi:.2f}\n\n🔒 Status: Multi-Asset Engine Active"
+                    message = f"🚀 **REAL-TIME TRADING ALERT**\n\n📊 Asset: **{asset_name}**\n🔴 Action: **SELL**\n💰 Price: {current_price:.4f}\n📈 RSI (14): {current_rsi:.2f}\n\n🔒 Status: Engine Live"
                     send_telegram_message(message)
                     last_signals[asset_name] = "SELL"
                     
-                # RSI ပုံမှန်ဇုန်ထဲ ပြန်ရောက်သွားပါက Signal အခြေအနေကို Reset ချပေးခြင်း
                 elif 45 < current_rsi < 55:
                     last_signals[asset_name] = None
                     
             except Exception as e:
                 logging.error(f"Error processing {asset_name}: {e}")
                 
-            # API Rate Limit မမိအောင် Asset တစ်ခုချင်းစီကြား ၂ စက္ကန့် ခေတ္တနားခြင်း
             await asyncio.sleep(2)
             
-        # စျေးကွက်တစ်ခုလုံးကို ၁ မိနစ်လျှင် တစ်ကြိမ်စီ ပတ်ပတ်လည် Scan ဖတ်ခြင်း
         await asyncio.sleep(60)
 
 def send_telegram_message(text):
@@ -89,20 +82,18 @@ def send_telegram_message(text):
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"}
     try:
         response = requests.post(url, json=payload)
-        logging.info(f"Telegram API Response: {response.status_code}")
+        logging.info(f"Telegram API Sent Status: {response.status_code}")
     except Exception as e:
-        logging.error(f"Telegram Sending Error: {e}")
+        logging.error(f"Telegram Error: {e}")
 
 @app.on_event("startup")
 async def startup_event():
-    # --- [ စမ်းသပ်ချက် အချက်ပြစာတို ] ---
-    # စနစ်စတင်မောင်းနှင်တာနဲ့ Telegram ထဲကို စမ်းသပ်စာသား ချက်ချင်း ပို့ခိုင်းခြင်း
-    test_msg = "📢 **BOT STATUS ACTIVE**\n\nMulti-Asset Trading Engine ကို အောင်မြင်စွာ တည်ဆောက်ပြီးပါပြီ။\n\n📊 **စောင့်ကြည့်နေသည့် စျေးကွက်များ-**\n• ရွှေ (Gold)\n• ရေနံ (Crude Oil)\n• Forex (EURUSD, GBPUSD)\n• Crypto (ETHUSD)\n\n🎯 *ယခုအချိန်မှစ၍ Signal များကို စတင်ဖတ်နေပါပြီ။*"
+    # စက်စတင်မောင်းနှင်တာနဲ့ Telegram ထဲကို စမ်းသပ်စာသား အတင်းပို့ခိုင်းခြင်း
+    test_msg = "📢 **BOT STATUS ACTIVE**\n\nMulti-Asset Trading Engine အသစ်ကို အောင်မြင်စွာ တည်ဆောက်ပြီးပါပြီ။\n\n🎯 *ယခုအချိန်မှစ၍ Signal များကို ၂၄ နာရီပတ်လုံး စတင်ဖတ်နေပါပြီ။*"
     send_telegram_message(test_msg)
     
-    # ပုံမှန် စောင့်ကြည့်ရေးလုပ်ငန်းစဉ်ကို နောက်ကွယ်ကနေ စတင်မောင်းနှင်ခြင်း
     asyncio.create_task(check_markets_and_alert())
 
 @app.get("/")
 def home():
-    return {"status": "Forex, Commodities & Crypto Engine is Fully Functional!"}
+    return {"status": "Live"}
