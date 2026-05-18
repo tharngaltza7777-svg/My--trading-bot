@@ -1,4 +1,5 @@
-pip
 fastapi
 uvicorn
 ta
+pandas
+requests
