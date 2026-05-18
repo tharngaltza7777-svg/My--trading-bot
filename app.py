@@ -35,54 +35,58 @@ def send_telegram_message(text):
         logging.error(f"Telegram Error: {e}")
 
 def run_vectorized_backtest(df):
-    df = df.copy()
-    df['RSI_6'] = ta.momentum.rsi(df['Close'], window=6)
-    df['RSI_14'] = ta.momentum.rsi(df['Close'], window=14)
-    df['RSI_26'] = ta.momentum.rsi(df['Close'], window=26)
-    df['EMA_200'] = ta.trend.ema_indicator(df['Close'], window=200)
-    df = df.dropna()
-    
-    if len(df) < 100:
-        return 0.0
-
-    df['Buy_Sig'] = (df['RSI_6'] > 50) & (df['RSI_14'] > 50) & (df['RSI_26'] > 50) & (df['Close'] > df['EMA_200'])
-    df['Sell_Sig'] = (df['RSI_6'] < 50) & (df['RSI_14'] < 50) & (df['RSI_26'] < 50) & (df['Close'] < df['EMA_200'])
-    
-    total_trades = 0
-    winning_trades = 0
-    
-    for i in range(len(df) - 5):
-        if df['Buy_Sig'].iloc[i]:
-            total_trades += 1
-            entry = df['Close'].iloc[i]
-            max_future_price = df['High'].iloc[i+1:i+6].max()
-            if max_future_price > entry * 1.005:
-                winning_trades += 1
-        elif df['Sell_Sig'].iloc[i]:
-            total_trades += 1
-            entry = df['Close'].iloc[i]
-            min_future_price = df['Low'].iloc[i+1:i+6].min()
-            if min_future_price < entry * 0.995:
-                winning_trades += 1
-                
-    if total_trades == 0:
-        return 80.0
+    try:
+        df = df.copy()
+        df['RSI_6'] = ta.momentum.rsi(df['Close'], window=6)
+        df['RSI_14'] = ta.momentum.rsi(df['Close'], window=14)
+        df['RSI_26'] = ta.momentum.rsi(df['Close'], window=26)
+        df['EMA_200'] = ta.trend.ema_indicator(df['Close'], window=200)
+        df = df.dropna()
         
-    win_rate = (winning_trades / total_trades) * 100
-    return win_rate
+        if len(df) < 100:
+            return 0.0
+
+        df['Buy_Sig'] = (df['RSI_6'] > 50) & (df['RSI_14'] > 50) & (df['RSI_26'] > 50) & (df['Close'] > df['EMA_200'])
+        df['Sell_Sig'] = (df['RSI_6'] < 50) & (df['RSI_14'] < 50) & (df['RSI_26'] < 50) & (df['Close'] < df['EMA_200'])
+        
+        total_trades = 0
+        winning_trades = 0
+        
+        for i in range(len(df) - 5):
+            if df['Buy_Sig'].iloc[i]:
+                total_trades += 1
+                entry = df['Close'].iloc[i]
+                max_future_price = df['High'].iloc[i+1:i+6].max()
+                if max_future_price > entry * 1.005:
+                    winning_trades += 1
+            elif df['Sell_Sig'].iloc[i]:
+                total_trades += 1
+                entry = df['Close'].iloc[i]
+                min_future_price = df['Low'].iloc[i+1:i+6].min()
+                if min_future_price < entry * 0.995:
+                    winning_trades += 1
+                    
+        if total_trades == 0:
+            return 80.0
+            
+        win_rate = (winning_trades / total_trades) * 100
+        return win_rate
+    except Exception:
+        return 0.0
 
 async def check_markets_and_alert():
     global last_signals
     logging.info("🚀 [ENGINE LAUNCHED]")
     
-    # စက်နှိုးသည်နှင့်တစ်ပြိုင်နက် Telegram ထို့ ချက်ချင်းစာပို့ရန် နှိုးဆော်ခြင်း
-    send_telegram_message("🤖 **QUANT BOT ACTIVE!**\n\nအစ်ကိုရေ... စနစ်ကို အစကနေ အသစ်ပြန်စတင်ပေးထားပါတယ်ဗျာ။ စျေးကွက်ထဲ ဆစ်ဂနယ်ပေါ်တာနဲ့ ချက်ချင်း Noti ပို့ပေးပါမည်။ 🟢")
+    # စက်စနှိုးတာနဲ့ Noti ချက်ချင်းကျလာစေရန် Force လုပ်ထားခြင်း
+    send_telegram_message("⚙️ **QUANT SUPER ENGINE ACTIVE**\n\n• **Timeframe:** 1 Hour (1hr)\n• **Backtest Range:** Last 30 Days\n• **Connection Status:** Live Link Connected! 🟢")
     
     while True:
         for asset_name, ticker in ASSETS.items():
             try:
+                await asyncio.sleep(3)
                 data = yf.download(tickers=ticker, period=BACKTEST_PERIOD, interval=INTERVAL, progress=False)
-                if data.empty or len(data) < 250:
+                if data.empty or len(data) < 100:
                     continue
                 
                 df = pd.DataFrame(data)
@@ -106,7 +110,7 @@ async def check_markets_and_alert():
                 recent_low = float(df['Low'].iloc[-10:].min())
                 recent_high = float(df['High'].iloc[-10:].max())
                 
-                if calculated_win_rate >= 75.0:
+                if calculated_win_rate >= 70.0:
                     if current_rsi_6 > 50 and current_rsi_14 > 50 and current_rsi_26 > 50 and current_price > current_ema_200:
                         if last_signals[asset_name] != "BUY":
                             sl = recent_low - (current_price * 0.002)
@@ -115,7 +119,7 @@ async def check_markets_and_alert():
                             message = (
                                 f"🟢 **🎯 PLUS500 AUTO-ORDER: BUY**\n\n"
                                 f"📊 Asset: **{asset_name}**\n"
-                                f"📈 1-Month Win Rate: `{calculated_win_rate:.2f}%` 🔥\n\n"
+                                f"📈 Win Rate: `{calculated_win_rate:.2f}%` 🔥\n\n"
                                 f"💰 **Entry Price:** {current_price:.4f}\n"
                                 f"🎯 **Take Profit (TP):** {tp:.4f}\n"
                                 f"🛑 **Stop Loss (SL):** {sl:.4f}"
@@ -131,7 +135,7 @@ async def check_markets_and_alert():
                             message = (
                                 f"🔴 **🎯 PLUS500 AUTO-ORDER: SELL**\n\n"
                                 f"📊 Asset: **{asset_name}**\n"
-                                f"📈 1-Month Win Rate: `{calculated_win_rate:.2f}%` 🔥\n\n"
+                                f"📈 Win Rate: `{calculated_win_rate:.2f}%` 🔥\n\n"
                                 f"💰 **Entry Price:** {current_price:.4f}\n"
                                 f"🎯 **Take Profit (TP):** {tp:.4f}\n"
                                 f"🛑 **Stop Loss (SL):** {sl:.4f}"
@@ -144,8 +148,8 @@ async def check_markets_and_alert():
                         
             except Exception as e:
                 logging.error(f"Error processing {asset_name}: {e}")
-            await asyncio.sleep(2)
-        await asyncio.sleep(60)
+                continue
+        await asyncio.sleep(300)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
