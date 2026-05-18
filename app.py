@@ -78,13 +78,13 @@ async def check_markets_and_alert():
     global last_signals
     logging.info("🚀 [ENGINE LAUNCHED]")
     
-    # စက်စနှိုးတာနဲ့ Noti ချက်ချင်းကျလာစေရန် Force လုပ်ထားခြင်း
-    send_telegram_message("⚙️ **QUANT SUPER ENGINE ACTIVE**\n\n• **Timeframe:** 1 Hour (1hr)\n• **Backtest Range:** Last 30 Days\n• **Connection Status:** Live Link Connected! 🟢")
+    # စက်စနှိုးတာနဲ့ Noti ချက်ချင်းကျလာစေရန် လှမ်းနှိုးထားခြင်း
+    send_telegram_message("⚙️ **QUANT SUPER ENGINE ACTIVE**\n\n• **Timeframe:** 1 Hour (1hr)\n• **Status:** Live Connected! 🟢")
     
     while True:
         for asset_name, ticker in ASSETS.items():
             try:
-                await asyncio.sleep(3)
+                await asyncio.sleep(5)
                 data = yf.download(tickers=ticker, period=BACKTEST_PERIOD, interval=INTERVAL, progress=False)
                 if data.empty or len(data) < 100:
                     continue
