@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 import requests
 import pandas as pd
-import pandas_ta as ta
+import ta
 
 # --- [ ဆက်တင်များ အားလုံး ဖြည့်စွက်ပြီးသားဖြစ်သည် ] ---
 TELEGRAM_BOT_TOKEN = "8951243669:AAEJSVGQo3AMWvIorVYUvAIzoBDdFW-z07M"
