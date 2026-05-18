@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import requests
 import pandas as pd
@@ -22,9 +23,7 @@ ASSETS = {
 INTERVAL = "5m"       
 RSI_PERIOD = 14       
 
-app = FastAPI()
-
-# Logging စနစ်ကို သေချာတက်လာအောင် ပြင်ဆင်ခြင်း
+# Logging သေချာတက်လာစေရန် Setup လုပ်ခြင်း
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 last_signals = {asset: None for asset in ASSETS.keys()}
@@ -34,7 +33,7 @@ def send_telegram_message(text):
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"}
     try:
         response = requests.post(url, json=payload)
-        logging.info(f"Telegram API Sent Status: {response.status_code} | Response: {response.text}")
+        logging.info(f"Telegram API Sent Status: {response.status_code}")
         return response.status_code
     except Exception as e:
         logging.error(f"Telegram Error: {e}")
@@ -42,12 +41,16 @@ def send_telegram_message(text):
 
 async def check_markets_and_alert():
     global last_signals
-    logging.info("🚀 [START] Multi-Asset Polling Engine စတင် အလုပ်လုပ်ပါပြီ...")
+    logging.info("🚀 [ENGINE START] Multi-Asset Polling Engine စတင်ပါပြီ...")
+    
+    # စက်စမောင်းတာနဲ့ Telegram ထဲကို စမ်းသပ်စာသား အတင်းပို့ခိုင်းခြင်း
+    test_msg = "📢 **BOT STATUS ACTIVE**\n\nTrading Engine ကို FastAPI Lifespan စနစ်ဖြင့် အောင်မြင်စွာ တည်ဆောက်ပြီးပါပြီ။\n\n🎯 *ယခုအချိန်မှစ၍ Signal များကို စတင်ဖတ်နေပါပြီ။*"
+    send_telegram_message(test_msg)
     
     while True:
         for asset_name, ticker in ASSETS.items():
             try:
-                logging.info(f"🔍 Fetching data for {asset_name} ({ticker})...")
+                logging.info(f"🔍 Fetching data for {asset_name}...")
                 data = yf.download(tickers=ticker, period="1d", interval=INTERVAL, progress=False)
                 
                 if data.empty or len(data) < (RSI_PERIOD + 2):
@@ -68,9 +71,8 @@ async def check_markets_and_alert():
                 current_rsi = float(df_clean['RSI'].iloc[-1])
                 current_price = float(df_clean['Close'].iloc[-1])
                 
-                # Render Log ပေါ်တွင် အမြဲတမ်း စာတန်းပေါ်နေစေရန် မဖြစ်မနေ ထုတ်ခိုင်းခြင်း
+                # Render Log ပေါ်တွင် အမြဲတမ်းမြင်ရအောင် print ထုတ်ခြင်း
                 print(f"📊 [{asset_name}] Price: {current_price:.4f} | RSI: {current_rsi:.2f}", flush=True)
-                logging.info(f"📊 [{asset_name}] Price: {current_price:.4f} | RSI: {current_rsi:.2f}")
                 
                 # Signal Logic
                 if current_rsi < 42 and last_signals[asset_name] != "BUY":
@@ -89,22 +91,21 @@ async def check_markets_and_alert():
             except Exception as e:
                 logging.error(f"Error processing {asset_name}: {e}")
                 
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
             
         await asyncio.sleep(60)
 
-# Render/FastAPI စတင်ပတ်တာနဲ့ အောက်ကလုပ်ငန်းစဉ်ကို မဖြစ်မနေ လုပ်ခိုင်းခြင်း
-@app.on_event("startup")
-async def startup_event():
-    logging.info("⚡ FastAPI Application Startup - Initializing Tasks...")
-    
-    # ၁။ စက်မောင်းတာနဲ့ Telegram ထဲကို စမ်းသပ်စာသား ချက်ချင်း ပို့ခိုင်းခြင်း
-    test_msg = "📢 **BOT STATUS ACTIVE**\n\nMulti-Asset Trading Engine စနစ်အသစ်ကို အောင်မြင်စွာ တည်ဆောက်ပြီးပါပြီ။\n\n🎯 *ယခုအချိန်မှစ၍ Signal များကို စတင်ဖတ်နေပါပြီ။*"
-    send_telegram_message(test_msg)
-    
-    # ၂။ စျေးကွက်စောင့်ကြည့်မည့် Loop ကို နောက်ကွယ်မှာ မရပ်မနား ပတ်ခိုင်းခြင်း
-    asyncio.create_task(check_markets_and_alert())
+# Uvicorn မောင်းတာနဲ့ နောက်ကွယ်က Loop ကို Background မှာ ဇွတ်မောင်းခိုင်းမည့် ခေတ်မီစနစ်
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # စက်စမောင်းချိန်တွင် လုပ်ရမည့်အလုပ်
+    task = asyncio.create_task(check_markets_and_alert())
+    yield
+    # စက်ပိတ်ချိန်တွင် လုပ်ရမည့်အလုပ်
+    task.cancel()
+
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def home():
-    return {"status": "Online", "engine": "Running"}
+    return {"status": "Online", "engine": "Lifespan Active"}
