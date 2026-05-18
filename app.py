@@ -75,8 +75,8 @@ async def check_markets_and_alert():
     global last_signals
     logging.info("🚀 [ENGINE LAUNCHED]")
     
-    # စက်စနှိုးတာနဲ့ Noti ကျလာအောင် အဓိက Force လုပ်ခိုင်းထားသည့်အပိုင်း
-    send_telegram_message("🤖 **QUANT BOT ACTIVE!**\n\nအစ်ကိုရေ... My new daily စနစ် အောင်မြင်စွာ စတင်ပါပြီဗျာ။ စျေးကွက်ထဲ ဆစ်ဂနယ်ပေါ်တာနဲ့ ချက်ချင်း Noti ပို့ပေးပါမည်။ 🟢")
+    # စက်နှိုးသည်နှင့်တစ်ပြိုင်နက် Telegram ထို့ ချက်ချင်းစာပို့ရန် နှိုးဆော်ခြင်း
+    send_telegram_message("🤖 **QUANT BOT ACTIVE!**\n\nအစ်ကိုရေ... စနစ်ကို အစကနေ အသစ်ပြန်စတင်ပေးထားပါတယ်ဗျာ။ စျေးကွက်ထဲ ဆစ်ဂနယ်ပေါ်တာနဲ့ ချက်ချင်း Noti ပို့ပေးပါမည်။ 🟢")
     
     while True:
         for asset_name, ticker in ASSETS.items():
