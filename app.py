@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 import requests
 import pandas as pd
 import ta
@@ -73,10 +73,10 @@ def run_vectorized_backtest(df):
 
 async def check_markets_and_alert():
     global last_signals
-    logging.info("🚀 [ENGINE LAUNCHED] Backtest & Auto Engine Started.")
+    logging.info("🚀 [ENGINE LAUNCHED]")
     
-    # စက်စနှိုးခြင်း အောင်မြင်ကြောင်း မဖြစ်မနေ Noti တစ်ချက် အရင်ပို့ခိုင်းထားခြင်း
-    send_telegram_message("⚙️ **QUANT SUPER ENGINE ACTIVE**\n\n• **Timeframe:** 1 Hour (1hr)\n• **Backtest Range:** Last 30 Days\n• **Connection Status:** Live Link Connected! 🟢")
+    # စက်စနှိုးတာနဲ့ Noti ကျလာအောင် အဓိက Force လုပ်ခိုင်းထားသည့်အပိုင်း
+    send_telegram_message("🤖 **QUANT BOT ACTIVE!**\n\nအစ်ကိုရေ... My new daily စနစ် အောင်မြင်စွာ စတင်ပါပြီဗျာ။ စျေးကွက်ထဲ ဆစ်ဂနယ်ပေါ်တာနဲ့ ချက်ချင်း Noti ပို့ပေးပါမည်။ 🟢")
     
     while True:
         for asset_name, ticker in ASSETS.items():
@@ -154,23 +154,6 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 app = FastAPI(lifespan=lifespan)
-
-# Telegram Webhook မှ လှမ်းခေါ်သောအခါ /start ကို ချက်ချင်း စာပြန်ပေးမည့် စနစ်သစ်
-@app.post("/webhook")
-async def telegram_webhook(request: Request):
-    try:
-        data = await request.json()
-        if "message" in data and "text" in data["message"]:
-            chat_id = str(data["message"]["chat"]["id"])
-            text = data["message"]["text"]
-            
-            if text.startswith("/start"):
-                reply_text = "🤖 **မင်္ဂလာပါအစ်ကို!** My new daily ကွမ်တမ်ဘော့တ်စနစ်မှ ကြိုဆိုပါတယ်ဗျာ။ ရွှေ၊ ရေနံနှင့် Forex စျေးကွက်များ၏ Win Rate 80% ဆစ်ဂနယ်များကို ဤနေရာတွင် အချိန်ကိုက် ပို့ဆောင်ပေးသွားပါမည်။ 🟢"
-                url = f"https://api.telegram.com/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-                requests.post(url, json={"chat_id": chat_id, "text": reply_text, "parse_mode": "Markdown"})
-    except Exception as e:
-        pass
-    return {"status": "ok"}
 
 @app.get("/")
 def home():
