@@ -78,8 +78,8 @@ async def check_markets_and_alert():
     global last_signals
     logging.info("🚀 [ENGINE LAUNCHED]")
     
-    # စက်စနှိုးတာနဲ့ Noti ချက်ချင်းကျလာစေရန် လှမ်းနှိုးထားခြင်း
-    send_telegram_message("⚙️ **QUANT SUPER ENGINE ACTIVE**\n\n• **Timeframe:** 1 Hour (1hr)\n• **Status:** Live Connected! 🟢")
+    # ဆာဗာ စတင်အလုပ်လုပ်တာနဲ့ အတင်းဇွတ် Noti ပို့ခိုင်းသည့်စာသား
+    send_telegram_message("⚙️ **QUANT SUPER ENGINE ACTIVE**\n\n• **Timeframe:** 1 Hour (1hr)\n• **Status:** Live Link Connected! 🟢")
     
     while True:
         for asset_name, ticker in ASSETS.items():
